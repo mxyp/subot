@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Executable entry point for the Subito watcher."""
+"""Executable entry point for the marketplace watcher."""
 
 import sys
 

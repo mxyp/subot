@@ -31,16 +31,17 @@ from .notifications import notify
 from .openrouter import OpenRouterClient
 from .prompts import load_llm_prompts
 from .state import StateStore, search_key
-from . import subito, vinted
+from . import subito, vinted, wallapop
 
 
 LOGGER = logging.getLogger("subot")
 WORKER_IDLE_SECONDS = 0.25
 _SUBITO_HOSTS = frozenset(("subito.it", "www.subito.it"))
 _VINTED_HOSTS = frozenset(("vinted.it", "www.vinted.it"))
+_WALLAPOP_HOSTS = wallapop.HOSTS
 _UNSUPPORTED_URL_ERROR = (
-    "unsupported search URL; expected a Subito.it result URL or a "
-    "Vinted.it /catalog URL"
+    "unsupported search URL; expected a Subito.it result URL, a "
+    "Vinted.it /catalog URL, or a Wallapop /search URL"
 )
 
 
@@ -51,6 +52,7 @@ def source_for_url(search_url):
     configuration supports multiple geographic and category URL layouts.
     Vinted search pages are restricted to ``/catalog`` and descendants so a
     profile, item, or other non-search page cannot be polled accidentally.
+    Wallapop search pages are restricted to ``/search`` for the same reason.
     """
 
     try:
@@ -72,6 +74,9 @@ def source_for_url(search_url):
         path == "/catalog" or path.startswith("/catalog/")
     ):
         return vinted
+
+    if hostname in _WALLAPOP_HOSTS and path in ("/search", "/app/search"):
+        return wallapop
 
     raise ValueError(_UNSUPPORTED_URL_ERROR)
 

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "subot"
 version = "0.1.0"
-description = "A marketplace watcher for Subito.it and Vinted.it that sends new listings to ntfy"
+description = "A marketplace watcher for Subito.it, Vinted.it, and Wallapop that sends new listings to ntfy"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.14"

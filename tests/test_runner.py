@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from curl_cffi.requests.exceptions import RequestException
 
-from subot_core import runner, subito, vinted
+from subot_core import runner, subito, vinted, wallapop
 from subot_core.models import CycleStats, JobStatus, ListingJob
 from subot_core.openrouter import OpenRouterDecisionError
 from tests.helpers import raw_item
@@ -156,6 +156,20 @@ class SourceRoutingTests(unittest.TestCase):
             vinted,
         )
 
+    def test_routes_wallapop_search_urls_to_the_wallapop_parser(self):
+        self.assertIs(
+            runner.source_for_url(
+                "https://it.wallapop.com/search?keywords=thinkcentre"
+            ),
+            wallapop,
+        )
+        self.assertIs(
+            runner.source_for_url(
+                "https://es.wallapop.com/app/search?keywords=iphone"
+            ),
+            wallapop,
+        )
+
     def test_rejects_non_catalog_vinted_path_before_fetch(self):
         with patch.object(vinted, "fetch_page") as fetch_page:
             with self.assertRaisesRegex(ValueError, "unsupported search URL"):
@@ -168,10 +182,22 @@ class SourceRoutingTests(unittest.TestCase):
 
         fetch_page.assert_not_called()
 
+    def test_rejects_non_search_wallapop_path_before_fetch(self):
+        with patch.object(wallapop, "fetch_page") as fetch_page:
+            with self.assertRaisesRegex(ValueError, "unsupported search URL"):
+                runner.poll_search_once(
+                    "https://it.wallapop.com/item/pc-lenovo-123",
+                    unittest.mock.Mock(),
+                    dry_run=True,
+                    stats=CycleStats(),
+                )
+
+        fetch_page.assert_not_called()
+
     def test_rejects_unsupported_host_before_fetch(self):
         with patch.object(subito, "fetch_page") as subito_fetch, patch.object(
             vinted, "fetch_page"
-        ) as vinted_fetch:
+        ) as vinted_fetch, patch.object(wallapop, "fetch_page") as wallapop_fetch:
             with self.assertRaisesRegex(ValueError, "unsupported search URL"):
                 runner.poll_search_once(
                     "https://example.test/search",
@@ -182,6 +208,7 @@ class SourceRoutingTests(unittest.TestCase):
 
         subito_fetch.assert_not_called()
         vinted_fetch.assert_not_called()
+        wallapop_fetch.assert_not_called()
 
     @patch("subot_core.vinted.parse_item")
     @patch("subot_core.vinted.extract_items")
@@ -216,6 +243,42 @@ class SourceRoutingTests(unittest.TestCase):
             "https://www.vinted.it/catalog?search_text=iphone"
         )
         extract_items.assert_called_once_with("html")
+        parse_item.assert_called_once_with(raw)
+        store.enqueue_listing.assert_called_once_with(item)
+
+    @patch("subot_core.wallapop.parse_item")
+    @patch("subot_core.wallapop.extract_items")
+    @patch("subot_core.wallapop.fetch_page", return_value="json")
+    def test_poll_uses_wallapop_parser_for_search_url(
+        self, fetch_page, extract_items, parse_item
+    ):
+        raw = object()
+        item = {
+            "id": "wallapop:aaa111",
+            "subject": "ThinkCentre",
+            "price": 150,
+            "url": "https://it.wallapop.com/item/lenovo-thinkcentre-123",
+            "town": "Tarragona",
+            "city": "Tarragona",
+        }
+        extract_items.return_value = [raw]
+        parse_item.return_value = item
+        store = unittest.mock.Mock()
+        store.is_search_initialized.return_value = True
+        store.enqueue_listing.return_value = True
+        stats = CycleStats()
+
+        runner.poll_search_once(
+            "https://it.wallapop.com/search?keywords=thinkcentre",
+            store,
+            dry_run=False,
+            stats=stats,
+        )
+
+        fetch_page.assert_called_once_with(
+            "https://it.wallapop.com/search?keywords=thinkcentre"
+        )
+        extract_items.assert_called_once_with("json")
         parse_item.assert_called_once_with(raw)
         store.enqueue_listing.assert_called_once_with(item)
 

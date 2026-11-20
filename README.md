@@ -1,14 +1,15 @@
 # subot
 
-A marketplace watcher for Subito.it and Vinted.it that sends newly discovered
-listings to ntfy, Telegram, or both, optionally filtering them with an LLM.
+A marketplace watcher for Subito.it, Vinted.it, and Wallapop that sends newly
+discovered listings to ntfy, Telegram, or both, optionally filtering them with
+an LLM.
 
-The `search_urls` list accepts Subito.it and Vinted.it search-result URLs. Copy
-the filtered URL directly from the marketplace.
-
-The first normal poll of each URL establishes a baseline, so listings already
-present are not notified. Set `use_llm` to `false` to notify every newly found
-listing without LLM filtering.
+The `search_urls` list accepts Subito.it, Vinted.it, and Wallapop search-result
+URLs. Copy the filtered URL directly from the marketplace. Wallapop's web
+interface does not carry price filters in the URL, so Wallapop search URLs
+additionally accept the optional `priceMin` and `priceMax` parameters (mapped
+to the marketplace's own API filters; plain numbers with a decimal point or a
+comma, no thousands separators).
 
 ## Notifications
 
