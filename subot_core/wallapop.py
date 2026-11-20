@@ -38,6 +38,9 @@ HOSTS = frozenset((
 ))
 
 _API_URL = "https://api.wallapop.com/api/v3/search"
+# Item URLs are built from server-provided slugs, which are shared across
+# the country marketplaces; the Italian host is used as the canonical
+# locale for every search market.
 _ITEM_URL = "https://it.wallapop.com/item/{}"
 _SEARCH_PATHS = frozenset(("/search", "/app/search"))
 _ORDER_BY_VALUES = frozenset((
@@ -65,6 +68,15 @@ def fetch_page(url):
 
 
 def extract_items(body):
+    """Extract listings and turn excessive nesting into a parse error."""
+
+    try:
+        return _extract_items(body)
+    except RecursionError as error:
+        raise ValueError("Wallapop response is too deeply nested") from error
+
+
+def _extract_items(body):
     """Return the deduplicated raw items of one API response body."""
     try:
         data = json.loads(body)
@@ -105,14 +117,23 @@ def parse_item(item):
         location = {}
     return {
         "id": f"wallapop:{identity}",
-        "subject": item.get("title") or "",
+        "subject": _text_value(item.get("title")),
         "price": _coerce_price(item.get("price")),
         "url": _ITEM_URL.format(web_slug),
         # Wallapop locations have no separate town level: the municipality
         # goes to ``town`` (like Subito's) and the province to ``city``.
-        "town": location.get("city") or "",
-        "city": location.get("region2") or "",
+        "town": _text_value(location.get("city")),
+        "city": _text_value(location.get("region2")),
     }
+
+
+def _text_value(value):
+    """Return a stripped string, or an empty one for anything non-textual."""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return str(value)
+    return ""
 
 
 def _coerce_price(price):
@@ -122,9 +143,12 @@ def _coerce_price(price):
     amount = price.get("amount")
     if isinstance(amount, bool) or not isinstance(amount, (int, float)):
         return None
-    if amount <= 0:
+    parsed = float(amount)
+    # json.loads also accepts Infinity and NaN literals; a non-finite or
+    # non-positive price would poison the notification queue downstream.
+    if not math.isfinite(parsed) or parsed <= 0:
         return None
-    return float(amount)
+    return parsed
 
 
 def _search_params(url):
@@ -141,6 +165,8 @@ def _search_params(url):
 
     query = parse_qs(parsed.query)
     keywords = query.get("keywords", [""])[0].strip()
+    # The API itself serves a default feed without keywords; the guard
+    # exists because subot watches specific searches, not the firehose.
     if not keywords:
         raise ValueError("Wallapop search URL must include a keywords parameter")
 

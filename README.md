@@ -9,7 +9,9 @@ URLs. Copy the filtered URL directly from the marketplace. Wallapop's web
 interface does not carry price filters in the URL, so Wallapop search URLs
 additionally accept the optional `priceMin` and `priceMax` parameters (mapped
 to the marketplace's own API filters; plain numbers with a decimal point or a
-comma, no thousands separators).
+comma, no thousands separators). Wallapop serves only the first result page
+(~11-12 items), so prefer `order_by=newest` in Wallapop URLs: with the
+default relevance ordering a new listing may never reach the polled page.
 
 ## Notifications
 

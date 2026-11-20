@@ -125,6 +125,10 @@ class ExtractItemsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "not contain search results"):
             wallapop.extract_items(json.dumps({"data": {}}))
 
+    def test_rejects_a_too_deeply_nested_body(self):
+        with self.assertRaisesRegex(ValueError, "too deeply nested"):
+            wallapop.extract_items("[" * 60000 + "]" * 60000)
+
 
 class ParseItemTests(unittest.TestCase):
     def test_normalizes_a_raw_item_into_the_shared_payload(self):
@@ -149,10 +153,26 @@ class ParseItemTests(unittest.TestCase):
         )
 
     def test_price_is_none_when_missing_or_not_positive(self):
-        for price in (None, {}, {"amount": 0}, {"amount": -5}, {"amount": "x"}):
+        for price in (
+            None,
+            {},
+            {"amount": 0},
+            {"amount": -5},
+            {"amount": "x"},
+            {"amount": float("inf")},
+            {"amount": float("nan")},
+        ):
             with self.subTest(price=price):
                 item = wallapop.parse_item(raw_wallapop_item("aaa111", price=price))
                 self.assertIsNone(item["price"])
+
+    def test_subject_town_and_city_are_always_strings(self):
+        item = wallapop.parse_item(raw_wallapop_item(
+            "aaa111", title={"bad": 1}, location={"city": ["x"], "region2": 7},
+        ))
+        self.assertEqual(item["subject"], "")
+        self.assertEqual(item["town"], "")
+        self.assertEqual(item["city"], "7")
 
     def test_town_and_city_are_always_present(self):
         item = wallapop.parse_item(raw_wallapop_item("aaa111", location=None))
