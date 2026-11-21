@@ -143,7 +143,10 @@ def main():
 
     configure_logging()
     parser = argparse.ArgumentParser(
-        description="Subito.it watcher with ntfy and Telegram notifications"
+        description=(
+            "Subito.it, Vinted.it, and Wallapop watcher with ntfy and "
+            "Telegram notifications"
+        )
     )
     parser.add_argument(
         "--once",
